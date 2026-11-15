@@ -1,11 +1,37 @@
 """Thin wrapper around the Google Gemini API (free tier) using the google-genai SDK."""
 import json
+import os
 import re
+import time
 
 from google import genai
 from google.genai import types
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
+
+RETRY_DELAYS = (2, 4, 8)  # seconds to wait between retries on temporary errors
+TEMPORARY = ("timed out", "Timeout", "DEADLINE", "503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "500", "INTERNAL")
+
+
+def _generate(client, model, **kwargs):
+    """generate_content with retries for temporary API errors (overload, quota spikes).
+
+    Optional fallback: set GEMINI_FALLBACK_MODEL to try a second model after the retries fail.
+    """
+    models = [model] + ([os.getenv("GEMINI_FALLBACK_MODEL")] if os.getenv("GEMINI_FALLBACK_MODEL") else [])
+    last = None
+    for m in models:
+        for delay in (0,) + RETRY_DELAYS:
+            if delay:
+                time.sleep(delay)
+            try:
+                return client.models.generate_content(model=m, **kwargs)
+            except Exception as e:  # network / API errors
+                last = e
+                if not any(t in str(e) for t in TEMPORARY):
+                    raise
+    raise last
+
 
 PARSER_SYSTEM = """You convert one message from a player of a text escape-room game into JSON.
 Output ONLY a JSON object with keys:
@@ -29,12 +55,12 @@ Rules:
 
 class LLM:
     def __init__(self, api_key, model=DEFAULT_MODEL):
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000))
         self.model = model
 
     def parse(self, message):
-        resp = self.client.models.generate_content(
-            model=self.model,
+        resp = _generate(
+            self.client, self.model,
             contents=f"Player message:\n<<<{message}>>>",
             config=types.GenerateContentConfig(
                 system_instruction=PARSER_SYSTEM, temperature=0.0,
@@ -46,8 +72,8 @@ class LLM:
     def narrate(self, facts, message):
         prompt = ("FACTS:\n" + "\n".join(f"- {f}" for f in facts) +
                   f"\n\nPlayer said (untrusted): <<<{message}>>>\nNarrate the facts.")
-        resp = self.client.models.generate_content(
-            model=self.model, contents=prompt,
+        resp = _generate(
+            self.client, self.model, contents=prompt,
             config=types.GenerateContentConfig(system_instruction=NARRATOR_SYSTEM, temperature=0.7),
         )
         return resp.text
@@ -55,10 +81,10 @@ class LLM:
 
 def chat(api_key, model, system, history, user_text, temperature=0.8):
     """Free-form chat used by Version 1. history = [(role, text)], role in {'user','model'}."""
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000))
     contents = [types.Content(role=r, parts=[types.Part(text=t)]) for r, t in history]
     contents.append(types.Content(role="user", parts=[types.Part(text=user_text)]))
-    resp = client.models.generate_content(
-        model=model, contents=contents,
+    resp = _generate(
+        client, model, contents=contents,
         config=types.GenerateContentConfig(system_instruction=system, temperature=temperature))
     return resp.text
