@@ -5,7 +5,7 @@ import re
 from google import genai
 from google.genai import types
 
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 PARSER_SYSTEM = """You convert one message from a player of a text escape-room game into JSON.
 Output ONLY a JSON object with keys:

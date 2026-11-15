@@ -101,7 +101,7 @@ streamlit run app_v1.py                               # Version 1 (needs a key)
 streamlit run app_v2.py                               # Version 2 (works without a key too)
 ```
 
-Get a free key at https://aistudio.google.com/apikey. The default model is `gemini-2.0-flash`; change it in the sidebar or with `GEMINI_MODEL`. Run the commands from the repository root, since the game loads `game_config.json` from the working directory. Never commit `.env`.
+Get a free key at https://aistudio.google.com/apikey. The default model is `gemini-2.5-flash`; change it in the sidebar or with `GEMINI_MODEL`. Run the commands from the repository root, since the game loads `game_config.json` from the working directory. Never commit `.env`.
 
 ## Project layout
 
