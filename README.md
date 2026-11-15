@@ -22,7 +22,7 @@ One system prompt holds the room, all clues, all solutions and the rules. The ch
 flowchart LR
     P([Player]) -->|natural-language message| UI[Streamlit chat UI<br/>app_v1.py]
     UI -->|system prompt with room + SECRET solutions<br/>+ full chat history + new message| LLM[(Gemini API<br/>Game Master)]
-    LLM -->|narrative reply<br/>+ [[ESCAPED]] marker| UI
+    LLM -->|narrative reply<br/>+ ESCAPED marker| UI
     UI -->|strip marker, show reply| P
     UI --- MEM[/st.session_state.history<br/>only memory = chat transcript/]
 ```
